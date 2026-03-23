@@ -1,0 +1,16 @@
+Create scripts the doing backup with Borg, The scripts should be split into different scripts. 
+
+1. One that is run as a root in order to install all needed stuff. Please mention if really root needed, or we can run as a non root, Installation example can be for example Borg:
+https://github.com/borgbackup/borg
+
+2. Another script should be schedule the con job in order to run in a non root user and doing all needed backups for the whole drop hard drive to BX11 box Of Hetzner, Make.nv f file for all needed params, for example, but not limited to the username, server domain of the bxhat eleven, SSH key, etc. Please note that the script will run not as a root, but the cron job should make delta backup of everything, It should be fast. Let's say not more than three hours for fifty GB ed on, Please note that we use RAID 1+1 in this server. 
+
+3. Third script should be list all backups we have and restore to any point in the past.
+
+4. 4th script should be restore for any point we choose.
+
+5. We should do rotation that is up to seven days of backup or up to one hundred GB store in the remote box the bigger out of the two options, Also please check that there is enough space each backup, and that there is at least three times more space than took the last backup, Otherwise share a warning.
+
+6. On failure we must do an error on the place that should be error when doing crone.
+
+7. If possible, please do some test scripts to test the whole system and write the results.
