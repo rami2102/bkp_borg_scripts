@@ -7,7 +7,7 @@ Bash scripts to back up an entire server to a [Hetzner Storage Box](https://www.
 | Script | Run as | Purpose |
 |--------|--------|---------|
 | `install.sh` | root | Install BorgBackup and dependencies |
-| `setup_permissions.sh` | root | Grant borg read-only access to all files (for full system backup as non-root) |
+| `setup_permissions.sh` | root | Grant borg read-only access to all files + sudoers rule for auto-restore after upgrades |
 | `setup_cron.sh` | non-root | Initialize remote borg repo, set up SSH key, install daily cron job |
 | `backup.sh` | non-root (cron) | Create backup, smart rotation, space safety checks |
 | `list_backups.sh` | non-root | List all backup archives with details |
@@ -75,6 +75,24 @@ When the repo exceeds the size limit, it prunes down to the daily retention coun
 # Restore a specific path
 ./restore.sh myhost-2026-03-24_02-00-00 /tmp/restore home/user/documents
 ```
+
+## Permissions (Full System Backup as Non-Root)
+
+To back up `/` (the entire system) without running as root:
+
+```bash
+# Run as the backup user — sudo auto-detects your username
+sudo ./setup_permissions.sh
+
+# Or specify a different user explicitly
+sudo ./setup_permissions.sh backupuser
+```
+
+This does two things:
+1. Sets `CAP_DAC_READ_SEARCH` on the borg binary — **read-only** access to all files (no write, no execute)
+2. Installs a sudoers rule (`/etc/sudoers.d/borg-backup-setcap`) so `backup.sh` can automatically re-apply the capability if `apt upgrade` strips it
+
+The cron job is fully automatic after this — no manual steps needed after package upgrades.
 
 ## Error Handling
 
