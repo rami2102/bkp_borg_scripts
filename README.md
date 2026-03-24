@@ -81,11 +81,14 @@ When the repo exceeds the size limit, it prunes down to the daily retention coun
 To back up `/` (the entire system) without running as root:
 
 ```bash
-# Run as the backup user — sudo auto-detects your username
+# Via sudo — auto-detects your username
 sudo ./setup_permissions.sh
 
-# Or specify a different user explicitly
+# Or specify a user explicitly
 sudo ./setup_permissions.sh backupuser
+
+# Or as root directly — will prompt for the backup username
+./setup_permissions.sh
 ```
 
 This does two things:
