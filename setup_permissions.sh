@@ -21,9 +21,17 @@ fi
 
 BACKUP_USER="${1:-${SUDO_USER:-}}"
 if [[ -z "$BACKUP_USER" ]]; then
-    echo "ERROR: Cannot determine backup user." >&2
-    echo "Usage: sudo ./setup_permissions.sh <username>" >&2
-    exit 1
+    echo "Cannot detect backup user (running as root directly)."
+    read -rp "Enter the non-root username who will run backups: " BACKUP_USER
+    if [[ -z "$BACKUP_USER" ]]; then
+        echo "ERROR: Username is required." >&2
+        exit 1
+    fi
+    # Verify user exists
+    if ! id "$BACKUP_USER" &>/dev/null; then
+        echo "ERROR: User '${BACKUP_USER}' does not exist." >&2
+        exit 1
+    fi
 fi
 
 echo "=== Borg Backup Permissions Setup ==="
