@@ -19,8 +19,10 @@ Shared functions live in `common.sh` (sourced by all scripts, not run directly).
 ## Quick Start
 
 ```bash
-# 1. Install BorgBackup
-sudo ./install.sh
+# 1. Install BorgBackup (standalone binary recommended for full system backup)
+sudo ./install.sh standalone
+# Or via package manager (Python wrapper — won't work with setup_permissions.sh):
+# sudo ./install.sh
 
 # 2. Grant borg read access to all files (recommended for full system backup)
 sudo ./setup_permissions.sh
