@@ -51,8 +51,12 @@ echo "Borg binary: ${BORG_BIN}"
 # ── Check if it's a script wrapper ─────────────────────────
 # Some distros install borg as a Python script; capabilities only work on ELF binaries.
 # In that case we need to set the capability on the Python interpreter instead.
-FILE_TYPE="$(file -b "$BORG_BIN")"
-if [[ "$FILE_TYPE" == *"script"* || "$FILE_TYPE" == *"text"* ]]; then
+# Detect script vs binary: check for #! shebang in first 2 bytes (works without `file` command)
+IS_SCRIPT=false
+if head -c2 "$BORG_BIN" 2>/dev/null | grep -q '^#!'; then
+    IS_SCRIPT=true
+fi
+if $IS_SCRIPT; then
     # It's a script — find the interpreter
     INTERPRETER="$(head -1 "$BORG_BIN" | sed 's/^#!//' | awk '{print $1}')"
     INTERPRETER="$(readlink -f "$INTERPRETER")"
