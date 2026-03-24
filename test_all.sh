@@ -187,7 +187,7 @@ fi
 # ── Test 10: all scripts have valid syntax ─────────────────
 echo "Test 10: All scripts syntax check"
 all_valid=true
-for script in install.sh setup_cron.sh backup.sh list_backups.sh restore.sh; do
+for script in install.sh setup_cron.sh remove_cron.sh backup.sh list_backups.sh restore.sh; do
     if [[ -f "${SCRIPT_DIR}/${script}" ]]; then
         if ! bash -n "${SCRIPT_DIR}/${script}"; then
             fail "${script} has syntax errors"

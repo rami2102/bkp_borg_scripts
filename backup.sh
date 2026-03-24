@@ -21,7 +21,7 @@ export BORG_RSH="ssh -p ${STORAGE_BOX_PORT} -i ${SSH_KEY_PATH} -o BatchMode=yes 
 
 # ── Borg command: use sudo if available ────────────────────
 # sudo -E preserves BORG_PASSPHRASE, BORG_REPO, BORG_RSH
-if sudo -n true 2>/dev/null && sudo -n borg --version &>/dev/null; then
+if sudo -n borg --version &>/dev/null; then
     BORG_CMD="sudo -E borg"
     log_info "Running borg as root (via sudo) for full system access."
 else
