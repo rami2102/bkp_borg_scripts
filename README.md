@@ -63,6 +63,19 @@ Keeps whichever allows **more** archives:
 
 When the repo exceeds the size limit, it prunes down to the daily retention count. A space safety check warns if free space is less than 3x the last backup's deduplicated size.
 
+## Daily Usage
+
+```bash
+# Run a backup manually (same as what cron does at 2:00 AM)
+./backup.sh
+
+# Check the cron schedule
+crontab -l
+
+# View backup log
+cat ~/.local/log/borg_backup.log
+```
+
 ## Listing and Restoring Backups
 
 ```bash
