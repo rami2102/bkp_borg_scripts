@@ -6,18 +6,28 @@
 # which allows it to read any file on the system without write or execute.
 # This is the minimal privilege needed for a full system backup.
 #
-# NOTE: Package updates may strip the capability. Re-run this script
-# after upgrading borgbackup.
+# Also installs a sudoers rule so the backup user can re-apply the
+# capability automatically (e.g. after apt upgrades strip it).
+# This means backup.sh in cron is fully automatic — no manual re-run needed.
 
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
     echo "ERROR: This script must be run as root (or with sudo)." >&2
-    echo "Usage: sudo ./setup_permissions.sh" >&2
+    echo "Usage: sudo ./setup_permissions.sh [backup-username]" >&2
+    echo "  backup-username: the non-root user who runs backups (default: \$SUDO_USER)" >&2
+    exit 1
+fi
+
+BACKUP_USER="${1:-${SUDO_USER:-}}"
+if [[ -z "$BACKUP_USER" ]]; then
+    echo "ERROR: Cannot determine backup user." >&2
+    echo "Usage: sudo ./setup_permissions.sh <username>" >&2
     exit 1
 fi
 
 echo "=== Borg Backup Permissions Setup ==="
+echo "Backup user: ${BACKUP_USER}"
 
 # ── Find borg binary ──────────────────────────────────────
 BORG_BIN="$(command -v borg 2>/dev/null || true)"
@@ -62,20 +72,50 @@ fi
 echo "Setting CAP_DAC_READ_SEARCH on ${TARGET_BIN}..."
 setcap cap_dac_read_search+ep "$TARGET_BIN"
 
-# ── Verify ─────────────────────────────────────────────────
+# ── Verify capability ─────────────────────────────────────
 CAPS="$(getcap "$TARGET_BIN")"
-if echo "$CAPS" | grep -q "cap_dac_read_search"; then
-    echo ""
-    echo "Success! Capability set:"
-    echo "  ${CAPS}"
-    echo ""
-    echo "Borg can now read all files on the system without root."
-    echo "No write or execute permissions were granted."
-    echo ""
-    echo "NOTE: Re-run this script after upgrading borgbackup (apt upgrade"
-    echo "may strip capabilities from the binary)."
-else
+if ! echo "$CAPS" | grep -q "cap_dac_read_search"; then
     echo "ERROR: Failed to set capability." >&2
     echo "Verify that your filesystem supports extended attributes." >&2
     exit 1
 fi
+
+echo "Capability set: ${CAPS}"
+
+# ── Install sudoers rule ──────────────────────────────────
+# Allows the backup user to run ONLY this specific setcap command
+# without a password. This lets backup.sh re-apply the capability
+# automatically before each backup (survives apt upgrades).
+SUDOERS_FILE="/etc/sudoers.d/borg-backup-setcap"
+SETCAP_BIN="$(command -v setcap)"
+SUDOERS_LINE="${BACKUP_USER} ALL=(root) NOPASSWD: ${SETCAP_BIN} cap_dac_read_search+ep ${TARGET_BIN}"
+
+echo ""
+echo "Installing sudoers rule for automatic capability restore..."
+echo "$SUDOERS_LINE" > "$SUDOERS_FILE"
+chmod 0440 "$SUDOERS_FILE"
+
+# Validate sudoers syntax
+if visudo -c -f "$SUDOERS_FILE" &>/dev/null; then
+    echo "Sudoers rule installed: ${SUDOERS_FILE}"
+    echo "  ${SUDOERS_LINE}"
+else
+    echo "ERROR: Invalid sudoers syntax. Removing file." >&2
+    rm -f "$SUDOERS_FILE"
+    exit 1
+fi
+
+# ── Save target binary path for backup.sh ─────────────────
+# Write the resolved path so backup.sh doesn't need to re-detect
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CAPS_FILE="${SCRIPT_DIR}/.borg_cap_target"
+echo "$TARGET_BIN" > "$CAPS_FILE"
+chown "${BACKUP_USER}:" "$CAPS_FILE"
+echo "Target binary path saved to: ${CAPS_FILE}"
+
+echo ""
+echo "=== Setup Complete ==="
+echo ""
+echo "  Borg can now read all files without root."
+echo "  backup.sh will re-apply the capability automatically before each run."
+echo "  No manual intervention needed after apt upgrades."

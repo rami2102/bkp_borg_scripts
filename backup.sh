@@ -18,6 +18,20 @@ export BORG_RSH="ssh -p ${STORAGE_BOX_PORT} -i ${SSH_KEY_PATH} -o BatchMode=yes 
 
 log_info "=== Starting backup ==="
 
+# ── Re-apply read capability (survives apt upgrades) ──────
+CAPS_FILE="${SCRIPT_DIR}/.borg_cap_target"
+if [[ -f "$CAPS_FILE" ]]; then
+    TARGET_BIN="$(cat "$CAPS_FILE")"
+    if [[ -f "$TARGET_BIN" ]] && ! getcap "$TARGET_BIN" 2>/dev/null | grep -q "cap_dac_read_search"; then
+        log_info "Re-applying CAP_DAC_READ_SEARCH on ${TARGET_BIN}..."
+        if sudo setcap cap_dac_read_search+ep "$TARGET_BIN" 2>/dev/null; then
+            log_info "Capability restored."
+        else
+            log_error "WARNING: Failed to restore capability. Some files may be unreadable."
+        fi
+    fi
+fi
+
 # ── Space check ────────────────────────────────────────────
 if ! check_space; then
     log_error "Space check failed. Backup will attempt anyway but may fail."
