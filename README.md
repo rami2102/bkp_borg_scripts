@@ -7,9 +7,9 @@ Bash scripts to back up an entire server to a [Hetzner Storage Box](https://www.
 | Script | Run as | Purpose |
 |--------|--------|---------|
 | `install.sh` | root | Install BorgBackup and dependencies |
-| `setup_permissions.sh` | root | Grant borg read-only access to all files + sudoers rule for auto-restore after upgrades |
+| `setup_permissions.sh` | root | Allow backup user to run borg as root via sudoers (one-time setup) |
 | `setup_cron.sh` | non-root | Initialize remote borg repo, set up SSH key, install daily cron job |
-| `backup.sh` | non-root (cron) | Create backup, smart rotation, space safety checks |
+| `backup.sh` | non-root (cron) | Create backup via `sudo -E borg`, smart rotation, space safety checks |
 | `list_backups.sh` | non-root | List all backup archives with details |
 | `restore.sh` | non-root | Restore from any archive (full or partial) |
 | `test_all.sh` | non-root | Run end-to-end test suite (uses local temp repo, safe to run anytime) |
@@ -19,12 +19,10 @@ Shared functions live in `common.sh` (sourced by all scripts, not run directly).
 ## Quick Start
 
 ```bash
-# 1. Install BorgBackup (standalone binary recommended for full system backup)
-sudo ./install.sh standalone
-# Or via package manager (Python wrapper — won't work with setup_permissions.sh):
-# sudo ./install.sh
+# 1. Install BorgBackup
+sudo ./install.sh
 
-# 2. Grant borg read access to all files (recommended for full system backup)
+# 2. Allow backup user to run borg as root (for full system backup)
 sudo ./setup_permissions.sh
 
 # 3. Configure
@@ -80,7 +78,7 @@ When the repo exceeds the size limit, it prunes down to the daily retention coun
 
 ## Permissions (Full System Backup as Non-Root)
 
-To back up `/` (the entire system) without running as root:
+To back up `/` (the entire system), the backup user needs to run borg as root:
 
 ```bash
 # Via sudo — auto-detects your username
@@ -93,11 +91,12 @@ sudo ./setup_permissions.sh backupuser
 ./setup_permissions.sh
 ```
 
-This does two things:
-1. Sets `CAP_DAC_READ_SEARCH` on the borg binary — **read-only** access to all files (no write, no execute)
-2. Installs a sudoers rule (`/etc/sudoers.d/borg-backup-setcap`) so `backup.sh` can automatically re-apply the capability if `apt upgrade` strips it
+This installs a sudoers rule (`/etc/sudoers.d/borg-backup`) that allows the backup user to run **only** `/usr/bin/borg` as root, without a password. `backup.sh` then uses `sudo -E borg` to read all files.
 
-The cron job is fully automatic after this — no manual steps needed after package upgrades.
+- Run once — survives apt upgrades, no re-run needed
+- Only borg can be run as root, nothing else
+- `SETENV` flag allows passing `BORG_PASSPHRASE`, `BORG_REPO`, `BORG_RSH` through sudo
+- If `setup_permissions.sh` was not run, `backup.sh` falls back to running borg as the current user (some files may be unreadable)
 
 ## Error Handling
 

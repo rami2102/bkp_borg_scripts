@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # backup.sh — Create a borg backup and prune old archives.
 # Called by cron or run manually. Non-root.
+#
+# Uses "sudo -E borg" so borg runs as root (can read all files).
+# The sudoers rule is installed by setup_permissions.sh.
 
-# Note: we do NOT use set -e / pipefail here because borg returns exit code 1
+# Note: we do NOT use set -e here because borg returns exit code 1
 # for warnings (e.g. permission denied on a file), which we handle gracefully.
 # Instead we check exit codes manually after each borg command.
 set -uo pipefail
@@ -16,21 +19,17 @@ enable_error_trap
 # ── SSH config ─────────────────────────────────────────────
 export BORG_RSH="ssh -p ${STORAGE_BOX_PORT} -i ${SSH_KEY_PATH} -o BatchMode=yes -o ServerAliveInterval=60 -o ServerAliveCountMax=3"
 
-log_info "=== Starting backup ==="
-
-# ── Re-apply read capability (survives apt upgrades) ──────
-CAPS_FILE="${SCRIPT_DIR}/.borg_cap_target"
-if [[ -f "$CAPS_FILE" ]]; then
-    TARGET_BIN="$(cat "$CAPS_FILE")"
-    if [[ -f "$TARGET_BIN" ]] && ! getcap "$TARGET_BIN" 2>/dev/null | grep -q "cap_dac_read_search"; then
-        log_info "Re-applying CAP_DAC_READ_SEARCH on ${TARGET_BIN}..."
-        if sudo setcap cap_dac_read_search+ep "$TARGET_BIN" 2>/dev/null; then
-            log_info "Capability restored."
-        else
-            log_error "WARNING: Failed to restore capability. Some files may be unreadable."
-        fi
-    fi
+# ── Borg command: use sudo if available ────────────────────
+# sudo -E preserves BORG_PASSPHRASE, BORG_REPO, BORG_RSH
+if sudo -n true 2>/dev/null && sudo -n borg --version &>/dev/null; then
+    BORG_CMD="sudo -E borg"
+    log_info "Running borg as root (via sudo) for full system access."
+else
+    BORG_CMD="borg"
+    log_info "Running borg as $(whoami) (no sudo). Some files may be unreadable."
 fi
+
+log_info "=== Starting backup ==="
 
 # ── Space check ────────────────────────────────────────────
 if ! check_space; then
@@ -52,7 +51,7 @@ log_info "Creating archive: ${ARCHIVE_NAME}"
 # Read BACKUP_PATHS into an array
 read -ra BACKUP_PATHS_ARR <<< "$BACKUP_PATHS"
 
-borg create \
+$BORG_CMD create \
     --stats \
     --show-rc \
     --compression "${BORG_COMPRESSION}" \
@@ -95,7 +94,7 @@ else
     # Over size limit — prune to RETENTION_DAYS daily (the guaranteed minimum)
     log_error "WARNING: Repo size ($(( repo_size_bytes / 1024 / 1024 / 1024 ))GB) exceeds ${RETENTION_MAX_GB}GB limit!"
     log_info "Pruning to ${RETENTION_DAYS} daily archives..."
-    borg prune \
+    $BORG_CMD prune \
         --stats \
         --show-rc \
         --keep-daily "${RETENTION_DAYS}" \
@@ -111,7 +110,7 @@ fi
 
 # ── Compact repo ──────────────────────────────────────────
 log_info "Compacting repository..."
-borg compact "$BORG_REPO" 2>&1 | tee -a "$LOG_FILE"
+$BORG_CMD compact "$BORG_REPO" 2>&1 | tee -a "$LOG_FILE"
 
 # ── Post-backup space check ──────────────────────────────
 log_info "Post-backup space report:"
