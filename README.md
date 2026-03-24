@@ -7,6 +7,7 @@ Bash scripts to back up an entire server to a [Hetzner Storage Box](https://www.
 | Script | Run as | Purpose |
 |--------|--------|---------|
 | `install.sh` | root | Install BorgBackup and dependencies |
+| `setup_permissions.sh` | root | Grant borg read-only access to all files (for full system backup as non-root) |
 | `setup_cron.sh` | non-root | Initialize remote borg repo, set up SSH key, install daily cron job |
 | `backup.sh` | non-root (cron) | Create backup, smart rotation, space safety checks |
 | `list_backups.sh` | non-root | List all backup archives with details |
@@ -21,14 +22,17 @@ Shared functions live in `common.sh` (sourced by all scripts, not run directly).
 # 1. Install BorgBackup
 sudo ./install.sh
 
-# 2. Configure
+# 2. Grant borg read access to all files (recommended for full system backup)
+sudo ./setup_permissions.sh
+
+# 3. Configure
 cp .env.example .env
 nano .env  # fill in your Hetzner Storage Box credentials
 
-# 3. Initialize repo and schedule daily backups (2:00 AM)
+# 4. Initialize repo and schedule daily backups (2:00 AM)
 ./setup_cron.sh
 
-# 4. Verify everything works
+# 5. Verify everything works
 ./test_all.sh
 ```
 

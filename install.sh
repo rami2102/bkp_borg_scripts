@@ -41,8 +41,9 @@ if command -v borg &>/dev/null; then
     borg --version
     echo ""
     echo "Next steps:"
-    echo "  1. Copy .env.example to .env and configure it"
-    echo "  2. Run ./setup_cron.sh as a non-root user to initialize the repo and schedule backups"
+    echo "  1. sudo ./setup_permissions.sh  — grant borg read access to all files (optional but recommended)"
+    echo "  2. Copy .env.example to .env and configure it"
+    echo "  3. Run ./setup_cron.sh as a non-root user to initialize the repo and schedule backups"
 else
     echo "ERROR: borg command not found after installation." >&2
     exit 1
